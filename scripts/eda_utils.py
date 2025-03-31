@@ -438,29 +438,6 @@ class EDAVisualizer:
             return processed_dfs
 
 
-    # @staticmethod
-    # def check_smiles_length(df, smiles_col='Drug'):
-    #     """
-    #     Compute and visualize the distribution of SMILES string lengths.
-    #     Adds a 'smiles_length' column to the DataFrame.
-
-    #     Parameters:
-    #     - df: pandas DataFrame containing SMILES strings
-    #     - smiles_col: the column name containing SMILES (default 'Drug')
-    #     """
-    #     df['smiles_length'] = df[smiles_col].apply(len)
-
-    #     df['smiles_length'].hist(bins=30)
-    #     plt.title("SMILES String Length Distribution")
-    #     plt.xlabel("Length")
-    #     plt.ylabel("Count")
-    #     plt.grid(axis='y', linestyle='--', alpha=0.7)
-    #     plt.show()
-
-    #     print("📏 SMILES Length Stats:")
-    #     display(df['smiles_length'].describe())
-
-
     @staticmethod
     def check_smiles_length(dfs=None, loader=None, smiles_col='Drug', names=None):
         """
@@ -501,22 +478,6 @@ class EDAVisualizer:
             plt.show()
 
 
-
-    # @staticmethod
-    # def check_missing_duplicates(df, smiles_col='Drug'):
-    #     """
-    #     Check for missing values and duplicates in the dataset.
-
-    #     Parameters:
-    #     - df: pandas DataFrame
-    #     - smiles_col: column used to identify duplicate SMILES (default 'Drug')
-    #     """
-    #     print(f"🔁 Duplicate Rows: {df.duplicated().sum()}")
-    #     print(f"🔁 Duplicate {smiles_col}: {df[smiles_col].duplicated().sum()}")
-    #     print("🕳️ Null Values:")
-    #     display(df.isnull().sum())
-
-
     @staticmethod
     def check_missing_duplicates(dfs=None, loader=None, smiles_col='Drug', names=None):
         """
@@ -551,19 +512,6 @@ class EDAVisualizer:
             display(df.isnull().sum())
             print("\n")
 
-
-    # @staticmethod
-    # def check_molecular_validity(df, smiles_col='Drug'):
-    #     """
-    #     Check if SMILES strings are valid RDKit molecules.
-
-    #     Parameters:
-    #     - df: pandas DataFrame
-    #     - smiles_col: column name with SMILES strings
-    #     """
-    #     df['is_valid_mol'] = df[smiles_col].apply(lambda x: EDAVisualizer.smiles_to_mol(x) is not None)
-    #     print(df['is_valid_mol'].value_counts())
-    #     print(f"❗ Invalid molecules: {(~df['is_valid_mol']).mean() * 100:.2f}%")
 
     @staticmethod
     def check_molecular_validity(dfs=None, loader=None, smiles_col='Drug', names=None):
@@ -706,7 +654,6 @@ class SMARTSPatternAnalyzer:
         summary_df = pd.DataFrame(summary).T
         summary_df.columns = [f"Class {c}" for c in summary_df.columns]
 
-        # ✨ Rename rows to remove 'smarts_' prefix for cleaner display
         summary_df.index = summary_df.index.str.replace('smarts_', '')
 
         # Display table
