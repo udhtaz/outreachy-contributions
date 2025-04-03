@@ -1,4 +1,4 @@
-# 🧪 Outreachy Contributions: Molecular Representation Learning using Ersilia
+# Outreachy Contributions: Molecular Representation Learning using Ersilia
 
 This repository documents my Outreachy contribution to the [Ersilia Model Hub](https://www.ersilia.io/model-hub), a platform providing AI models for drug discovery. The goal of this project is to explore molecular representation learning by selecting datasets from [Therapeutics Data Commons (TDC)](https://tdcommons.ai/), applying pretrained molecular featurizers from the Ersilia Model Hub, and building reproducible pipelines for drug discovery tasks.
 
