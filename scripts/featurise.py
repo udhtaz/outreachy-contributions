@@ -47,6 +47,7 @@ class MolecularFeaturiser:
             self.logger.info(f"[API] Initializing Ersilia model: {self.model_id}")
             self.model = ErsiliaModel(model=self.model_id)
             self.model.serve()
+            self.logger.info("✅ Model initialized Succesfully")
 
     def run_ersilia_featurisation(self, input_path, output_path):
         """

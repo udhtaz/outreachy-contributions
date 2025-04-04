@@ -173,4 +173,6 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 .DS_Store
-requirements.txt
+
+# The feauturized data for eos4wt0 were too large 
+**/*eos4wt0*.csv
