@@ -1,98 +1,125 @@
-# Outreachy Contributions: Molecular Representation Learning using Ersilia
+# 🧬 Outreachy Contributions: Molecular Representation Learning using Ersilia
 
-This repository documents my Outreachy contribution to the [Ersilia Model Hub](https://www.ersilia.io/model-hub), a platform providing AI models for drug discovery. The goal of this project is to explore molecular representation learning by selecting datasets from [Therapeutics Data Commons (TDC)](https://tdcommons.ai/), applying pretrained molecular featurizers from the Ersilia Model Hub, and building reproducible pipelines for drug discovery tasks.
-
----
-
-## Project goals:
-- Understand how to use and interact with the Ersilia Model Hub
-- Demonstrate basic AI/ML knowledge
-- Show your Python coding skills 
-- Practice code documentation and end user documentation
+This repository documents my Outreachy contribution to the [Ersilia Model Hub](https://www.ersilia.io/model-hub), a platform providing AI models for drug discovery. The goal of this project is to explore molecular representation learning using the [Therapeutics Data Commons (TDC)](https://tdcommons.ai/) datasets, apply pretrained molecular featurizers from the Ersilia Model Hub, and build reproducible pipelines to train, evaluate, and compare ML models for drug discovery tasks.
 
 ---
 
-## 🚀 Project Structure
+## 📌 Project Objectives
+
+- ✅ Understand and interact with the Ersilia Model Hub via SDK and CLI
+- ✅ Apply molecular featurization to SMILES strings using pretrained models
+- ✅ Train and evaluate ML classifiers using PyCaret and scikit-learn
+- ✅ Automate dataset loading, featurization, model training, and evaluation
+- ✅ Visualize and compare model performance across different molecular representations
+
+---
+
+##  Repository Structure
 
 ```bash
 outreachy-contributions/
 │
-├── data/                    # Datasets (e.g., AMES, HIV)
+├── data/                    # Processed datasets and splits (AMES, HIV)
 │   ├── AMES/
 │   └── HIV/
 │
-├── scripts/                 # Python scripts for EDA, featurization, etc.
+├── models/                 # Trained model files (.pkl)
+│   └── AMES/
+│
+├── scripts/                 # Python scripts for core logic
 │   ├── tdc_dataset_download.py
 │   ├── featurise.py
-│   └── eda_utils.py
+│   ├── eda_utils.py
+│   ├── model_utils.py       # Full training, evaluation, and visualization logic
 │
-├── notebooks/              # Jupyter notebooks for experiments
+├── notebooks/              # Interactive Jupyter experiments
 │   ├── AMES_Mutagenicity_Prediction.ipynb
-│   └── AMES_Mutagenicity_Prediction.ipynb
+│   └── HIV_Inhibition_Prediction.ipynb
 │
-└── README.md               # Project documentation
+└── README.md
 ```
 
 ---
 
-## 📊 Dataset of Interest
+## 📊 Datasets of Interest
 
-For this project, I selected two datasets from TDC:
+Two binary classification datasets from TDC were used:
 
-### 1. **AMES Mutagenicity Dataset**
-- **Task**: Binary Classification (mutagenic or not)
-- **Input**: SMILES strings
-- **Output**: `1` (mutagenic) or `0` (non-mutagenic)
-- **Size**: ~7,255 compounds
-- [More info](https://tdcommons.ai/single_pred_tasks/tox#ames-mutagenicity)
+### 1. **AMES Mutagenicity**
+- Predict if a compound is **mutagenic** (1) or **non-mutagenic** (0)
+- Input: SMILES strings
+- Size: ~7,255 compounds
+- [🔗 View](https://tdcommons.ai/single_pred_tasks/tox#ames-mutagenicity)
 
-### 2. **HIV Dataset**
-- **Task**: Binary Classification (HIV inhibition or not)
-- **Input**: SMILES strings of molecules
-- **Output**: `1` (active) or `0` (inactive)
-- **Size**: ~41,000 molecules
-- [More info](https://tdcommons.ai/single_pred_tasks/tox#hiv)
-
-Both datasets were downloaded using Python and stored in the `data/` directory with a clear structure (`train.csv`, `valid.csv`, `test.csv` under `splits/`).
-
-✅ Dataset preprocessing, validation, and classification task confirmation are completed.
+### 2. **HIV Inhibition**
+- Predict if a compound **inhibits HIV replication** (1) or not (0)
+- Input: SMILES strings
+- Size: ~41,000 compounds
+- [🔗 View](https://tdcommons.ai/single_pred_tasks/tox#hiv)
 
 ---
 
-## 🧬 Molecular Featurization (Representation Learning)
+## 🧬 Molecular Representation (Featurization)
 
-After browsing the [Ersilia Model Hub](https://www.ersilia.io/model-hub), I tested multiple featurizers to encode SMILES strings into feature vectors:
+Featurization converts SMILES into numeric vectors using pretrained models from the Ersilia Hub. Supported via both CLI and SDK with fallback logic and container readiness checks.
 
-### 🔍 Representation Models Used
+### ✅ Featurizer Used
 
-- **✅ `eos5guo`**: ErG 2D Descriptors  
-  - Uses pharmacophore-based Extended Reduced Graph descriptors.
-  - Efficient (598MB) and successfully featurized both AMES and HIV datasets.
-  - [GitHub](https://github.com/ersilia-os/eos5guo) | [DockerHub](https://hub.docker.com/r/ersiliaos/eos5guo)
-
-📌 The featurization script supports both SDK and CLI modes and includes fallback logic, reproducibility, and error handling.
+| Featurizer ID | Description                             | Source                         |
+|---------------|-----------------------------------------|--------------------------------|
+| `eos5guo`     | Extended Reduced Graph (ErG) Descriptors| [GitHub](https://github.com/ersilia-os/eos5guo) |
+| `eos4wt0`     | Morgan (Circular) Fingerprints          | [GitHub](https://github.com/ersilia-os/eos4wt0) |
 
 ---
 
-## 🧰 How to Run Featurization
+## 🧠 Model Training & Evaluation
+
+After featurization, models were trained using **ExtraTreesClassifier**, **RandomForest**, and **LightGBM**, and evaluated on standard metrics:
+
+- Accuracy
+- F1 Score
+- Precision
+- Recall
+- AUC
+- MCC
+- Cohen's Kappa
+
+A reusable `ModelTrainer` class handles all training, loading, and evaluation. Model comparison across featurizers is visualized with bar plots.
+
+### 📉 Example: AMES Mutagenicity Evaluation Plot
+
+<img src="notebooks/assets/ames_comparison_plot.png" alt="AMES Model Comparison" width="600"/>
+
+---
+
+## 🔄 Reproducibility
 
 ```bash
-# Activate environment
-source .venv/bin/activate
+# 1. Download datasets
+python scripts/tdc_dataset_download.py --task tox --dataset AMES
 
-# Install requirements
-pip install pytdc pandas ersilia
-
-# Run featurizer
+# 2. Run featurization
 python scripts/featurise.py --dataset AMES --auto
-python scripts/featurise.py --dataset HIV --auto
+
+# 3. Train and evaluate
+# Inside a notebook or script
+from scripts.model_utils import ModelTrainer
+trainer = ModelTrainer(...)  # Pass featurized splits
+trainer.train_with_pycaret()
+trainer.compare_loaded_models_across_features(...)
 ```
 
 ---
 
-## 📌 Next Steps
+##  What's Next
 
-- Train an ML classifier on the featurized data.
-- Evaluate model performance using accuracy, precision, recall, etc.
-- Visualize metrics using plots and graphs.
-- Update README with model evaluation results.
+- [x] Load and preprocess HIV dataset
+- [x] Train comparable models for HIV
+- [ ] Deploy evaluation results as a static dashboard
+- [ ] Package reusable pipeline CLI for external datasets
+
+---
+
+## 🤝 Acknowledgments
+
+Thanks to the [Ersilia Open Source Initiative](https://www.ersilia.io) and the [Outreachy program](https://www.outreachy.org/) for this opportunity.
