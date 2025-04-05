@@ -3,6 +3,7 @@ import time
 import logging
 import random
 
+from collections import Counter
 import pandas as pd
 import joblib
 import seaborn as sns
@@ -287,6 +288,89 @@ class ModelTrainer:
         self.best_model = load_model(name)
         print(f"📦 Loaded model '{name}.pkl'")
         return self.best_model
+    
+    # def load_model_from_file(self, path: str) -> BaseEstimator:
+    #     """
+    #     Load a model from a specific .pkl file path using joblib.
+
+    #     Parameters:
+    #         path (str): Full path to the .pkl model file
+
+    #     Returns:
+    #         model (BaseEstimator): Loaded model instance
+    #     """
+    #     if not os.path.exists(path):
+    #         raise FileNotFoundError(f"❌ File not found: {path}")
+
+    #     model = joblib.load(path)
+    #     print(f"📦 Loaded model from: {path}")
+    #     return model
+
+
+    def load_model_from_file(self, model_info: dict, split: str = "valid", external_data_path: str = None):
+        """
+        Load a model and auto-attach its dataset context for evaluation.
+
+        Parameters:
+            model_info (dict): {
+                "path": str,       # path to saved .pkl model
+                "dataset": str,    # dataset name (e.g., "AMES")
+                "model_id": str,   # featurizer used (e.g., "eos4wt0")
+                "label": Optional[str]  # model label for reporting
+            }
+            split (str): Dataset split to use ("train", "valid", "test", or "external")
+            external_data_path (str): Optional path to external CSV if split='external'
+
+        Returns:
+            dict: {
+                "model": loaded model,
+                "X": features from split,
+                "y": labels from split,
+                "label": model label,
+                "dataset": dataset name,
+                "model_id": model_id
+            }
+        """
+
+        # === Extract info ===
+        path = model_info["path"]
+        dataset = model_info["dataset"]
+        model_id = model_info["model_id"]
+        label = model_info.get("label", Path(path).stem)
+
+        # === Load model ===
+        model = joblib.load(path)
+
+        if split == "external":
+            if not external_data_path:
+                raise ValueError("External data path must be provided when split='external'")
+            df = pd.read_csv(external_data_path)
+            print(f"📄 Using EXTERNAL data from: {external_data_path}")
+        else:
+            assert split in ["train", "valid", "test"], f"Invalid split '{split}'"
+            project_root = Path(__file__).resolve().parents[1] 
+            split_file = project_root / "data" / dataset / "splits" / f"{split}_{model_id}_features.csv"
+            if not split_file.exists():
+                raise FileNotFoundError(f"Split file not found: {split_file}")
+            df = pd.read_csv(split_file)
+            print(f"📄 Using {split} data from: {split_file}")
+
+        # === Extract features and target ===
+        feature_cols = [col for col in df.columns if col.startswith("Mol_feat_")]
+        X = df[feature_cols]
+        y = df["Y"]
+
+        print(f"📦 Loaded model from: {path}")
+
+        return {
+            "model": model,
+            "X": X,
+            "y": y,
+            "label": label,
+            "dataset": dataset,    
+            "model_id": model_id    
+        }
+
 
     def train_custom_model(self, model_cls, model_name=None, **kwargs):
         """
@@ -401,6 +485,97 @@ class ModelTrainer:
         plt.title("🔥 Top Feature Importances")
         plt.tight_layout()
         plt.show()
+
+    def compare_loaded_models_across_features(self, loaded_models: list, top_n_metrics: int = 7, use_preprocessor: bool = True):
+        """
+        Compare models that were trained on different feature sets and already loaded using `load_model_from_file`.
+
+        Parameters:
+            loaded_models (list): List of dictionaries returned by `load_model_from_file`
+            top_n_metrics (int): Number of metrics to plot (sorted by average score)
+            use_preprocessor (bool): Whether to clean and align the input X using ModelPreprocessor
+
+        Returns:
+            pd.DataFrame: Comparison table of metrics across models
+        """
+
+        all_metrics = []
+        model_labels = []
+
+        for model_dict in loaded_models:
+            model = model_dict["model"]
+            X = model_dict["X"]
+            y = model_dict["y"]
+            label = model_dict["label"]
+            dataset = model_dict["dataset"]
+            model_id = model_dict["model_id"]
+
+            if use_preprocessor:
+                try:
+                    preprocessor = ModelPreprocessor(dataset, model_id)
+                    X, y, _, _, _, _ = preprocessor.preprocess()
+                except Exception as e:
+                    print(f"⚠️ Failed to preprocess for {label}: {e}")
+
+            # Align features with those used during training
+            expected_features = getattr(model, 'feature_names_in_', X.columns)
+            X = X.reindex(columns=expected_features, fill_value=0)
+
+            # Evaluate
+            preds = model.predict(X)
+            proba = getattr(model, "predict_proba", lambda x: None)(X)
+            auc_input = proba[:, 1] if proba is not None else None
+
+            metrics = {
+                "Accuracy": accuracy_score(y, preds),
+                "F1 Score": f1_score(y, preds),
+                "Precision": precision_score(y, preds),
+                "Recall": recall_score(y, preds),
+                "Kappa": cohen_kappa_score(y, preds),
+                "MCC": matthews_corrcoef(y, preds),
+            }
+
+            if auc_input is not None:
+                try:
+                    metrics["AUC"] = roc_auc_score(y, auc_input)
+                except:
+                    metrics["AUC"] = None
+
+            all_metrics.append(metrics)
+            model_labels.append(label)
+
+        # Convert to DataFrame
+        comparison_df = pd.DataFrame(all_metrics, index=model_labels).T.reset_index()
+        comparison_df.rename(columns={"index": "Metric"}, inplace=True)
+
+        display(comparison_df)
+
+        # === Plot
+        melted = comparison_df.melt(id_vars="Metric", var_name="Model", value_name="Score")
+        avg_scores = melted.groupby("Metric")["Score"].mean().sort_values(ascending=False)
+        top_metrics = avg_scores.head(top_n_metrics).index.tolist()
+
+        melted_top = melted[melted["Metric"].isin(top_metrics)]
+
+        plt.figure(figsize=(12, 6))  # wider to accommodate legend
+        ax = sns.barplot(data=melted_top, x="Metric", y="Score", hue="Model")
+        plt.title("📊 Cross-Featurizer Model Performance Comparison")
+        plt.xticks(rotation=45)
+        plt.ylim(0, 1)
+
+        # ✅ Legend: top-right corner, vertical
+        ax.legend(
+            title="Model",
+            loc='upper left',
+            bbox_to_anchor=(1.02, 1),
+            borderaxespad=0,
+            frameon=False
+        )
+
+        plt.tight_layout()
+        plt.show()
+
+        # return comparison_df
 
 
     def compare_models_on_metrics(self, models, model_names=None, dataset="valid", external_data_path=None, external_data_name=None, plot=True):
