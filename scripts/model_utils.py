@@ -288,24 +288,6 @@ class ModelTrainer:
         self.best_model = load_model(name)
         print(f"📦 Loaded model '{name}.pkl'")
         return self.best_model
-    
-    # def load_model_from_file(self, path: str) -> BaseEstimator:
-    #     """
-    #     Load a model from a specific .pkl file path using joblib.
-
-    #     Parameters:
-    #         path (str): Full path to the .pkl model file
-
-    #     Returns:
-    #         model (BaseEstimator): Loaded model instance
-    #     """
-    #     if not os.path.exists(path):
-    #         raise FileNotFoundError(f"❌ File not found: {path}")
-
-    #     model = joblib.load(path)
-    #     print(f"📦 Loaded model from: {path}")
-    #     return model
-
 
     def load_model_from_file(self, model_info: dict, split: str = "valid", external_data_path: str = None):
         """
@@ -486,7 +468,14 @@ class ModelTrainer:
         plt.tight_layout()
         plt.show()
 
-    def compare_loaded_models_across_features(self, loaded_models: list, top_n_metrics: int = 7, use_preprocessor: bool = True):
+    def compare_loaded_models_across_features(
+        self,
+        loaded_models: list,
+        top_n_metrics: int = 7,
+        use_preprocessor: bool = True,
+        eval_split: str = "valid",
+        plot_title: str = None
+    ):
         """
         Compare models that were trained on different feature sets and already loaded using `load_model_from_file`.
 
@@ -494,6 +483,8 @@ class ModelTrainer:
             loaded_models (list): List of dictionaries returned by `load_model_from_file`
             top_n_metrics (int): Number of metrics to plot (sorted by average score)
             use_preprocessor (bool): Whether to clean and align the input X using ModelPreprocessor
+            eval_split (str): Which split to evaluate on — "train", "valid", or "test"
+            plot_title (str): Custom plot title. If None, a default title will be used.
 
         Returns:
             pd.DataFrame: Comparison table of metrics across models
@@ -513,9 +504,17 @@ class ModelTrainer:
             if use_preprocessor:
                 try:
                     preprocessor = ModelPreprocessor(dataset, model_id)
-                    X, y, _, _, _, _ = preprocessor.preprocess()
+                    if eval_split == "train":
+                        X, y, _, _, _, _ = preprocessor.preprocess()
+                    elif eval_split == "valid":
+                        _, _, X, y, _, _ = preprocessor.preprocess()
+                    elif eval_split == "test":
+                        _, _, _, _, X, y = preprocessor.preprocess()
+                    else:
+                        raise ValueError(f"Invalid eval_split value: {eval_split}")
                 except Exception as e:
                     print(f"⚠️ Failed to preprocess for {label}: {e}")
+                    continue
 
             # Align features with those used during training
             expected_features = getattr(model, 'feature_names_in_', X.columns)
@@ -544,26 +543,26 @@ class ModelTrainer:
             all_metrics.append(metrics)
             model_labels.append(label)
 
-        # Convert to DataFrame
+        # === Table
         comparison_df = pd.DataFrame(all_metrics, index=model_labels).T.reset_index()
         comparison_df.rename(columns={"index": "Metric"}, inplace=True)
-
         display(comparison_df)
 
         # === Plot
         melted = comparison_df.melt(id_vars="Metric", var_name="Model", value_name="Score")
         avg_scores = melted.groupby("Metric")["Score"].mean().sort_values(ascending=False)
         top_metrics = avg_scores.head(top_n_metrics).index.tolist()
-
         melted_top = melted[melted["Metric"].isin(top_metrics)]
 
-        plt.figure(figsize=(12, 6))  # wider to accommodate legend
+        plt.figure(figsize=(12, 6))
         ax = sns.barplot(data=melted_top, x="Metric", y="Score", hue="Model")
-        plt.title("📊 Cross-Featurizer Model Performance Comparison")
+        # Set custom or default title
+        title = plot_title if plot_title else f"📊 Model Performance Comparison on {eval_split.capitalize()} Set"
+        plt.title(title)
         plt.xticks(rotation=45)
         plt.ylim(0, 1)
 
-        # ✅ Legend: top-right corner, vertical
+        # Legend top-right, vertical stack
         ax.legend(
             title="Model",
             loc='upper left',
