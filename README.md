@@ -1,4 +1,4 @@
-# 🧬 Outreachy Contributions: Molecular Representation Learning using Ersilia
+# 🧬 Outreachy Contributions: Molecular Representation Learning with Ersilia & TDC
 
 This repository documents my Outreachy contribution to the [Ersilia Model Hub](https://www.ersilia.io/model-hub), a platform providing AI models for drug discovery. The goal of this project is to explore molecular representation learning using the [Therapeutics Data Commons (TDC)](https://tdcommons.ai/) datasets, apply pretrained molecular featurizers from the Ersilia Model Hub, and build reproducible pipelines to train, evaluate, and compare ML models for drug discovery tasks.
 
@@ -19,24 +19,34 @@ This repository documents my Outreachy contribution to the [Ersilia Model Hub](h
 ```bash
 outreachy-contributions/
 │
-├── data/                    # Processed datasets and splits (AMES, HIV)
+├── data/                            # Processed datasets and splits
 │   ├── AMES/
-│   └── HIV/
+│   ├── HIV/
+│   └── .gitkeep
 │
-├── models/                 # Trained model files (.pkl)
-│   └── AMES/
+├── models/                          # Trained models
+│   ├── ames/
+│   └── .gitkeep
 │
-├── scripts/                 # Python scripts for core logic
-│   ├── tdc_dataset_download.py
-│   ├── featurise.py
-│   ├── eda_utils.py
-│   ├── model_utils.py       # Full training, evaluation, and visualization logic
-│
-├── notebooks/              # Interactive Jupyter experiments
+├── notebooks/                       # Interactive Jupyter notebooks
 │   ├── AMES_Mutagenicity_Prediction.ipynb
-│   └── HIV_Inhibition_Prediction.ipynb
+│   ├── HIV_Inhibition_Prediction.ipynb
+│   ├── figures/                     # Plots and Figures 
+│   └── .gitkeep
 │
-└── README.md
+├── scripts/                         # Core Python logic for the project
+│   ├── eda_utils.py                 # EDA utilities (visuals, SMARTS, checks)
+│   ├── featurise.py                 # Ersilia model featurization pipeline
+│   ├── model_utils.py              # Preprocessing, training, evaluation
+│   ├── tdc_dataset_download.py      # Dataset downloader for TDC
+│   └── .gitkeep
+│
+│
+├── .gitignore
+├── LICENSE
+├── README.md
+└── requirements.txt
+
 ```
 
 ---
@@ -59,7 +69,7 @@ Two binary classification datasets from TDC were used:
 
 ---
 
-## 🧬 Molecular Representation (Featurization)
+## 🧬 Molecular Representation Model Selected
 
 Featurization converts SMILES into numeric vectors using pretrained models from the Ersilia Hub. Supported via both CLI and SDK with fallback logic and container readiness checks.
 
@@ -72,23 +82,117 @@ Featurization converts SMILES into numeric vectors using pretrained models from 
 
 ---
 
-## 🧠 Model Training & Evaluation
+## 🔬 Methodology Summary : 
 
-After featurization, models were trained using **ExtraTreesClassifier**, **RandomForest**, and **LightGBM**, and evaluated on standard metrics:
+### 🧬 AMES Mutagenicity as Primary Case Study
 
-- Accuracy
-- F1 Score
-- Precision
-- Recall
-- AUC
-- MCC
-- Cohen's Kappa
+### 1. 📥 Fetch Dataset  
+  - AMES dataset from [Therapeutics Data Commons (TDC)](https://tdcommons.ai/)
 
-A reusable `ModelTrainer` class handles all training, loading, and evaluation. Model comparison across featurizers is visualized with bar plots.
+    Downloaded using `TDCDatasetDownloader`, auto-split into train/valid/test.
+
+
+### 2. 📊 Exploratory Data Analysis  
+
+  - **Dataset Summary & Unique SMILES Check**
+
+    Quick stats, missing values, SMILES uniqueness across splits and Target class distribution.
+
+<img width="1064" alt="Screenshot 2025-04-07 at 1 22 32 PM" src="https://github.com/user-attachments/assets/f97d083a-d1c6-43cb-b838-c5eed62f955a" />
+
+<img width="1064" alt="Screenshot 2025-04-07 at 1 22 10 PM" src="https://github.com/user-attachments/assets/059deb2c-d991-4208-8047-821f661ba0e4" />
+
+<img width="1064" alt="Screenshot 2025-04-07 at 1 26 59 PM" src="https://github.com/user-attachments/assets/24b68373-0ccb-4811-bb76-402d5d5079f4" />
+
+  
+  - **RDKit Molecular Validity**
+
+    Ensures SMILES strings represent valid molecules.
+
+<img width="1073" alt="Screenshot 2025-04-07 at 1 28 52 PM" src="https://github.com/user-attachments/assets/2af26940-4509-47aa-b51e-2aa376449edf" />
+ 
+  
+  - **Descriptor Engineering (MW, LogP, TPSA, etc.)**
+
+    Calculated physicochemical features using RDKit and correlation to target class (Y) across datasplits.
+<img width="1063" alt="Screenshot 2025-04-07 at 1 30 42 PM" src="https://github.com/user-attachments/assets/f3495c45-af35-48fd-a481-1ca94845cc5b" />
+  
+
+  - **SMARTS Pattern Matching**
+
+    Detected presence of key functional groups (e.g., amines, halogens).
+<img width="1119" alt="Screenshot 2025-04-07 at 1 35 18 PM" src="https://github.com/user-attachments/assets/9b2d8c5a-6ff8-4f63-ba8e-d10bb375e07f" />
+
+  
+  - **Correlation Heatmaps, Boxplots, Histograms**
+
+    Analyzed feature relationships and distribution shifts.
+<img width="1062" alt="Screenshot 2025-04-07 at 1 36 38 PM" src="https://github.com/user-attachments/assets/65902b45-b871-4390-89c4-68cf57f464f5" />
+<img width="1064" alt="Screenshot 2025-04-07 at 1 37 36 PM" src="https://github.com/user-attachments/assets/ee5c64d7-a105-4661-84fd-ee2f6f5f04b0" />
+
+  
+  - **Visualize Molecules by Class**
+
+    Drew grid samples of molecules per label (mutagenic/non-mutagenic).
+<img width="1060" alt="Screenshot 2025-04-07 at 1 38 40 PM" src="https://github.com/user-attachments/assets/82d437e1-e2ed-4c84-b2a1-a4fe5c913f51" />
+
+
+### 3. 🧬 Molecular Featurization with Ersilia  
+
+  - **ErG2D Descriptors – `eos5guo`**
+
+    Pharmacophore-based 2D graph encoding of molecular structures.
+  
+  - **Morgan Fingerprints (Binary) – `eos4wt0`**
+
+    Circular substructure presence encoding into 2048D binary vectors.
+  
+  - Featurized splits saved to `data/AMES/splits/`.
+
+
+### 4. 🤖 Modeling Pipeline  
+
+  - **Data Preprocessing with `ModelPreprocessor`**
+
+    Auto-detects feature columns using prefix and splits data.
+  
+  - **AutoML Exploration using PyCaret**
+
+    Compared top classifiers in a single call using `run_pycaret()`.
+  
+  - **Hyperparameter Tuning**
+    - Auto `PyCaret` tuning on selected models
+    - Manual `GridSearchCV` on selected models.
+  
+  - **Evaluation**
+    
+     Accuracy, F1, Precision, Recall, Kappa, AUC, MCC + Confusion Matrix + Feature Importance plots.
+
+
+### 5. ⚖️ Model Comparison  
+
+  - Compared models trained using both `eos5guo` and `eos4wt0` featurizers.
+  - Models:
+
+    Random Forest, Extra Trees, LightGBM, XGBoost, Logistic Regression
+  - Visual comparisons via bar charts.
+
+
+### 6. 🏆 Best Performing Model  
+
+  - **Best model:** Extra Trees Classifier (ET) trained on Morgan Prints (`eos4wt0`)
+  - Saved to `\models` folder
+
+
+### 7. 🤖 Inference  
+
+
+  - Use `ModelInference` class to predict on new SMILES.
+  - Inference returns predictions + class probabilities.
 
 ---
 
-## 📉 DOCUMENTATION
+## 📚 SCRIPTS DOCUMENTATION
 
 ### 1. 📥 `TDCDatasetDownloader` - `tdc_dataset_download.py`
 
