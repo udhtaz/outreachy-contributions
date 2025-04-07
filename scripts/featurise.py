@@ -87,7 +87,7 @@ class MolecularFeaturiser:
             for f in [input_path, temp_output]:
                 if os.path.exists(f):
                     os.remove(f)
-                    self.logger.info(f"Deleted temporary file: {f}")
+                    # self.logger.info(f"Deleted temporary file: {f}")
 
     def featurise_split(self, split, return_df=False):
         """

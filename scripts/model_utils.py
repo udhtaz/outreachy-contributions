@@ -5,6 +5,7 @@ import random
 
 from collections import Counter
 import pandas as pd
+import numpy as np
 import joblib
 import seaborn as sns
 import matplotlib.pyplot as plt 
@@ -391,6 +392,7 @@ class ModelTrainer:
             return pd.DataFrame()
         return pd.DataFrame(self.custom_leaderboard).sort_values("F1", ascending=False)
 
+
     def tune_model_with_pycaret(self, model, n_iter=50, choose_better=True):
         """
         Tune a specific model using PyCaret's tune_model utility.
@@ -402,6 +404,7 @@ class ModelTrainer:
         self.best_model = tuned
         return tuned
 
+
     def train_selected_model(self, model):
         """
         Train a provided sklearn-style model (already instantiated with custom parameters).
@@ -411,62 +414,132 @@ class ModelTrainer:
         self.best_model = model
         return model
 
-    def evaluate_model(self, model=None):
+
+    def evaluate_model(self, model=None, dataset: str = "valid", external_data_path: str = None, external_data_name: str = None):
         """
-        Evaluate the given model (or the best model) on the validation set.
+        Evaluate the given model (or best model) on a chosen dataset split.
+
+        Parameters:
+            model: Trained sklearn-compatible model. If None, uses self.best_model.
+            dataset (str): Dataset to evaluate on: "train", "valid", "test", or "external".
+            external_data_path (str): Required if dataset='external'. Path to CSV file with data.
+            external_data_name (str): Optional name for external data in printouts.
         """
         model = model or self.best_model
         start = time.time()
 
-        val_preds = model.predict(self.X_valid)
-        proba = getattr(model, "predict_proba", lambda x: None)(self.X_valid)
+        # === Get the data ===
+        if dataset == "train":
+            X, y = self.X_train, self.y_train
+            source = "Train"
+        elif dataset == "valid":
+            X, y = self.X_valid, self.y_valid
+            source = "Validation"
+        elif dataset == "test":
+            X, y = self.X_test, self.y_test
+            source = "Test"
+        elif dataset == "external":
+            if not external_data_path:
+                raise ValueError("Please provide external_data_path when dataset='external'")
+            df = pd.read_csv(external_data_path)
+            feature_cols = self.X_train.columns.tolist()
+            X = df[feature_cols]
+            y = df["Y"]
+            source = external_data_name or "External"
+        else:
+            raise ValueError("Invalid dataset. Choose from 'train', 'valid', 'test', or 'external'.")
+
+        # === Predict and Evaluate ===
+        preds = model.predict(X)
+        proba = getattr(model, "predict_proba", lambda x: None)(X)
         val_proba = proba[:, 1] if proba is not None else None
 
-        print("📊 Evaluation Metrics:")
-        print(f"Accuracy: {accuracy_score(self.y_valid, val_preds):.4f}")
+        print(f"📊 Evaluation Metrics on {source} Set:")
+        print(f"Accuracy: {accuracy_score(y, preds):.4f}")
         if val_proba is not None:
-            print(f"AUC: {roc_auc_score(self.y_valid, val_proba):.4f}")
-        print(f"Recall: {recall_score(self.y_valid, val_preds):.4f}")
-        print(f"Precision: {precision_score(self.y_valid, val_preds):.4f}")
-        print(f"F1 Score: {f1_score(self.y_valid, val_preds):.4f}")
-        print(f"Kappa: {cohen_kappa_score(self.y_valid, val_preds):.4f}")
-        print(f"MCC: {matthews_corrcoef(self.y_valid, val_preds):.4f}")
+            print(f"AUC: {roc_auc_score(y, val_proba):.4f}")
+        print(f"Recall: {recall_score(y, preds):.4f}")
+        print(f"Precision: {precision_score(y, preds):.4f}")
+        print(f"F1 Score: {f1_score(y, preds):.4f}")
+        print(f"Kappa: {cohen_kappa_score(y, preds):.4f}")
+        print(f"MCC: {matthews_corrcoef(y, preds):.4f}")
         print(f"Time taken (seconds): {time.time() - start:.2f}")
 
-    def plot_confusion_matrix(self, model=None):
+
+    def plot_confusion_matrix(self, model=None, dataset: str = "valid", plot_title: str = None):
         """
-        Plot a confusion matrix for the given (or best) model on the validation set.
+        Plot a confusion matrix for the given (or best) model on the specified dataset split.
+
+        Parameters:
+            model: Trained sklearn-compatible model. If None, uses self.best_model.
+            dataset (str): Dataset split to use: "train", "valid", or "test" (default is "valid").
+            plot_title (str): Optional custom title for the plot.
         """
         model = model or self.best_model
-        preds = model.predict(self.X_valid)
-        cm = confusion_matrix(self.y_valid, preds)
+
+        if dataset == "train":
+            X, y = self.X_train, self.y_train
+        elif dataset == "valid":
+            X, y = self.X_valid, self.y_valid
+        elif dataset == "test":
+            X, y = self.X_test, self.y_test
+        else:
+            raise ValueError("Invalid dataset. Choose from 'train', 'valid', or 'test'.")
+
+        preds = model.predict(X)
+        cm = confusion_matrix(y, preds)
+
         sns.heatmap(cm, annot=True, fmt="g", cmap="Blues",
                     xticklabels=["False", "True"],
                     yticklabels=["False", "True"])
         plt.xlabel("Predicted")
         plt.ylabel("Actual")
-        plt.title("🌀 Confusion Matrix - Validation Set")
-        plt.show()
 
-    def plot_feature_importance(self, top_n=20):
-        """
-        Plot the top N feature importances (if supported by the model).
-        """
-        if not hasattr(self.best_model, "feature_importances_"):
-            print("⚠️ Feature importances not available for this model.")
-            return
-
-        importances = self.best_model.feature_importances_
-        features = self.X_train.columns
-
-        importance_df = pd.DataFrame({"Feature": features, "Importance": importances})
-        top_features = importance_df.sort_values("Importance", ascending=False).head(top_n)
-
-        plt.figure(figsize=(10, 6))
-        sns.barplot(data=top_features, x="Importance", y="Feature")
-        plt.title("🔥 Top Feature Importances")
+        title = plot_title if plot_title else f"Confusion Matrix - {dataset.capitalize()} Set"
+        plt.title(title)
         plt.tight_layout()
         plt.show()
+
+
+    def plot_feature_importance(self, top_n=20, plot_title=None):
+        """
+        Plot the top N feature importances or coefficients, depending on model type.
+
+        Parameters:
+            top_n (int): Number of top features to plot
+            plot_title (str): Optional custom title for the plot
+        """
+        model = self.best_model
+        features = self.X_train.columns
+
+        if hasattr(model, "feature_importances_"):
+            importances = model.feature_importances_
+            importance_type = "Feature Importance"
+        elif hasattr(model, "coef_"):
+            # Handle multi-class or multi-output by flattening
+            importances = model.coef_.flatten()
+            importances = np.abs(importances)  # treat negative coefficients as strong too
+            importance_type = "Absolute Coefficients"
+        else:
+            print("⚠️ Feature importances or coefficients not available for this model.")
+            return
+
+        # Build DataFrame
+        importance_df = pd.DataFrame({
+            "Feature": features,
+            "Importance": importances
+        })
+
+        # Sort and select top
+        top_features = importance_df.sort_values("Importance", ascending=False).head(top_n)
+
+        # Plot
+        plt.figure(figsize=(10, 6))
+        sns.barplot(data=top_features, x="Importance", y="Feature")
+        plt.title(plot_title or f"🔥 Top {top_n} {importance_type}")
+        plt.tight_layout()
+        plt.show()
+
 
     def compare_loaded_models_across_features(
         self,
@@ -577,7 +650,16 @@ class ModelTrainer:
         # return comparison_df
 
 
-    def compare_models_on_metrics(self, models, model_names=None, dataset="valid", external_data_path=None, external_data_name=None, plot=True):
+    def compare_models_on_metrics(
+        self,
+        models,
+        model_names=None,
+        dataset="valid",
+        external_data_path=None,
+        external_data_name=None,
+        plot=True,
+        plot_title: str = None
+    ):
         """
         Compare multiple models side by side on selected dataset (validation, test, or external).
 
@@ -588,10 +670,12 @@ class ModelTrainer:
             external_data_path (str): Path to CSV file if using external data
             external_data_name (str): Optional name to show in titles if evaluating on external data
             plot (bool): Whether to generate a barplot
+            plot_title (str): Optional custom plot title
 
         Returns:
             pd.DataFrame: Comparison of metrics across the models
         """
+
         # === Select Dataset ===
         if dataset == "valid":
             X, y = self.X_valid, self.y_valid
@@ -641,17 +725,246 @@ class ModelTrainer:
         # === Plot if required ===
         if plot:
             melted_df = comparison_df.melt(id_vars="Metric", var_name="Model", value_name="Score")
-            plt.figure(figsize=(10, 6))
-            # Randomly sample distinct colors from a large palette
+            plt.figure(figsize=(12, 6))
+
+            # Color palette
             unique_models = melted_df["Model"].unique()
-            color_count = len(unique_models)
-            palette = random.sample(sns.color_palette("husl", 10), k=color_count)
-            sns.barplot(data=melted_df, x="Metric", y="Score", hue="Model", palette=palette)
-            # sns.barplot(data=melted_df, x="Metric", y="Score", hue="Model", palette=sns.color_palette("Set2"))
-            plt.title(f"📊 Model Comparison on {source} Set")
+            palette = random.sample(sns.color_palette("husl", 10), k=len(unique_models))
+
+            ax = sns.barplot(data=melted_df, x="Metric", y="Score", hue="Model", palette=palette)
+
+            # Custom or default title
+            title = plot_title if plot_title else f"📊 Model Comparison on {source} Set"
+            plt.title(title)
             plt.xticks(rotation=45)
             plt.ylim(0, 1)
+
+            # ✅ Legend to top-right outside the plot, stacked vertically
+            ax.legend(
+                title="Model",
+                loc='upper left',
+                bbox_to_anchor=(1.02, 1),
+                borderaxespad=0,
+                frameon=False
+            )
+
             plt.tight_layout()
             plt.show()
 
         # return comparison_df
+
+
+# class ModelInference:
+#     """
+#     Loads a model and runs prediction on SMILES input using the appropriate Ersilia featurizer.
+
+#     This class:
+#     - Parses model name to auto-detect dataset and featurizer ID.
+#     - Loads the specified model from disk (or a default if none provided).
+#     - Uses the correct featurizer from Ersilia to convert SMILES into features.
+#     - Runs predictions and returns a readable output.
+#     """
+
+#     def __init__(self, model_path: str = None):
+#         """
+#         Initialize the inference class by loading the model and associated featurizer.
+
+#         Parameters:
+#             model_path (str): Path to the saved model file (.pkl). If None, loads a default model.
+#         """
+#         if model_path is None:
+#             default_model = "ames_eos4wt0_randomforestclassifier.pkl"
+#             project_root = Path(__file__).resolve().parents[1]
+#             model_path = project_root / "models" / "ames" / default_model
+#             print(f"🔁 No model path provided. Using default model: {model_path}")
+
+#         self.model_path = Path(model_path)
+
+#         # Dynamically resolve full model path from cwd if relative
+#         if not self.model_path.exists():
+#             cwd = Path.cwd()
+#             if cwd.name == "notebooks":
+#                 self.model_path = cwd.parent / model_path.strip("./")
+#             else:
+#                 self.model_path = cwd / model_path.strip("./")
+
+#         if not self.model_path.exists():
+#             raise FileNotFoundError(f"❌ Model not found at: {self.model_path}")
+
+#         # Load model and parse dataset info
+#         self.model = joblib.load(self.model_path)
+#         self.dataset_name, self.featurizer_id = self._parse_model_filename(self.model_path)
+
+#         # Initialize the matching featurizer
+#         self.featuriser = MolecularFeaturiser(self.dataset_name, self.featurizer_id)
+#         print(f"✅ Model and featurizer loaded — Dataset: {self.dataset_name}, Featurizer: {self.featurizer_id}")
+
+#     def _parse_model_filename(self, model_path: Union[str, Path]):
+#         """
+#         Extract dataset and featurizer ID from the model filename.
+
+#         Expected format: <dataset>_<featurizer>_<model>.pkl
+
+#         Returns:
+#             tuple: (dataset_name: str, featurizer_id: str)
+#         """
+#         name = Path(model_path).stem
+#         parts = name.split("_")
+#         if len(parts) < 3:
+#             raise ValueError("Model filename must follow: <dataset>_<featurizer>_<model>.pkl")
+#         return parts[0].upper(), parts[1]
+
+#     def predict(self, smiles_list: List[str]) -> pd.DataFrame:
+#         """
+#         Run prediction on a list of SMILES strings.
+
+#         Parameters:
+#             smiles_list (List[str]): List of SMILES strings to featurize and classify.
+
+#         Returns:
+#             pd.DataFrame: DataFrame containing original SMILES, predicted class,
+#                           and probability of the positive class (mutagenic/inhibitor).
+#         """
+#         df = pd.DataFrame({"SMILES": smiles_list})
+#         featurized_df = self.featuriser.featurise_smiles_column(df, smiles_col="SMILES", prefix="Mol")
+
+#         # Drop object-type columns like 'Mol_feat_key'
+#         featurized_df = featurized_df.select_dtypes(include=[np.number])
+
+#         # Align feature columns with training feature order
+#         expected_features = getattr(self.model, "feature_names_in_", None)
+#         if expected_features is not None:
+#             featurized_df = featurized_df.reindex(columns=expected_features, fill_value=0)
+
+#         # Predict
+#         preds = self.model.predict(featurized_df)
+#         proba = getattr(self.model, "predict_proba", lambda x: None)(featurized_df)
+#         prob_values = proba[:, 1] if proba is not None else None
+
+#         result_df = pd.DataFrame({
+#             "SMILES": smiles_list,
+#             "Prediction": preds
+#         })
+#         if prob_values is not None:
+#             result_df["Mutagenic_Probability"] = prob_values  # Prob of being mutagenic/inhibitor
+
+#         return result_df
+
+class ModelInference:
+    """
+    Loads a trained model and runs predictions on input SMILES strings.
+    Automatically selects the correct Ersilia featurizer based on the model filename.
+
+    Features:
+    - Parses model name to auto-detect dataset and featurizer ID.
+    - Loads the specified model from disk, or falls back to a default model.
+    - Featurizes SMILES using the correct Ersilia model.
+    - Aligns feature columns with training-time features.
+    - Outputs predictions and dataset-specific probability scores.
+    """
+
+    def __init__(self, model_path: Union[str, Path] = None):
+        """
+        Initialize the inference engine with the given model or a default fallback.
+
+        Parameters:
+            model_path (str or Path): Path to the saved .pkl model file.
+                                      If None, loads the default AMES model.
+        """
+        if model_path is None:
+            default_model = "ames_eos4wt0_randomforestclassifier.pkl"
+            project_root = Path(__file__).resolve().parents[1]
+            model_path = project_root / "models" / "ames" / default_model
+            print(f"🔁 No model path provided. Using default model: {model_path}")
+
+        self.model_path = Path(model_path)
+
+        # Dynamically resolve model path from current working directory
+        if not self.model_path.exists():
+            cwd = Path.cwd()
+            if cwd.name == "notebooks":
+                self.model_path = cwd.parent / model_path.strip("./")
+            else:
+                self.model_path = cwd / model_path.strip("./")
+            # if cwd.name == "notebooks":
+            #     self.model_path = cwd.parent / self.model_path
+            # else:
+            #     self.model_path = cwd / self.model_path
+
+        if not self.model_path.exists():
+            raise FileNotFoundError(f"❌ Model not found at: {self.model_path.resolve()}")
+
+        # Load model and associated metadata
+        self.model = joblib.load(self.model_path)
+        self.dataset_name, self.featurizer_id = self._parse_model_filename(self.model_path)
+
+        # Initialize the matching featurizer
+        self.featuriser = MolecularFeaturiser(self.dataset_name, self.featurizer_id)
+        print(f"✅ Model and featurizer loaded — Dataset: {self.dataset_name}, Featurizer: {self.featurizer_id}")
+
+    def _parse_model_filename(self, model_path: Union[str, Path]) -> tuple:
+        """
+        Extract dataset and featurizer ID from the model filename.
+
+        Expected format: <dataset>_<featurizer>_<model>.pkl
+
+        Returns:
+            tuple: (dataset_name: str, featurizer_id: str)
+        """
+        name = Path(model_path).stem
+        parts = name.split("_")
+        if len(parts) < 3:
+            raise ValueError("Model filename must follow: <dataset>_<featurizer>_<model>.pkl")
+        return parts[0].upper(), parts[1]
+
+    def _get_probability_column_name(self) -> str:
+        """
+        Determine appropriate column name for predicted probabilities based on dataset.
+
+        Returns:
+            str: Name of the probability column.
+        """
+        mapping = {
+            "AMES": "Mutagenic_Probability",
+            "HIV": "Inhibition_Probability"
+        }
+        return mapping.get(self.dataset_name.upper(), "Predicted_Probability")
+
+    def predict(self, smiles_list: List[str]) -> pd.DataFrame:
+        """
+        Run predictions on a list of SMILES strings using the loaded model.
+
+        Parameters:
+            smiles_list (List[str]): List of SMILES strings.
+
+        Returns:
+            pd.DataFrame: Contains original SMILES, binary predictions, and
+                          probability of the positive class (if supported).
+        """
+        df = pd.DataFrame({"SMILES": smiles_list})
+        featurized_df = self.featuriser.featurise_smiles_column(df, smiles_col="SMILES", prefix="Mol")
+
+        # Drop non-numeric columns (e.g., Mol_feat_key)
+        featurized_df = featurized_df.select_dtypes(include=[np.number])
+
+        # Align features with training-time column order
+        expected_features = getattr(self.model, "feature_names_in_", None)
+        if expected_features is not None:
+            featurized_df = featurized_df.reindex(columns=expected_features, fill_value=0)
+
+        # Run predictions
+        preds = self.model.predict(featurized_df)
+        proba = getattr(self.model, "predict_proba", lambda x: None)(featurized_df)
+        prob_values = proba[:, 1] if proba is not None else None
+
+        # Compose result
+        result_df = pd.DataFrame({
+            "SMILES": smiles_list,
+            "Prediction": preds
+        })
+
+        if prob_values is not None:
+            prob_col = self._get_probability_column_name()
+            result_df[prob_col] = prob_values
+
+        return result_df
