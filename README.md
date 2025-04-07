@@ -55,13 +55,13 @@ outreachy-contributions/
 
 Two binary classification datasets from TDC were used:
 
-### 1. **AMES Mutagenicity**
+### 1. **AMES Mutagenicity (Primary Dataset)**
 - Predict if a compound is **mutagenic** (1) or **non-mutagenic** (0)
 - Input: SMILES strings
 - Size: ~7,255 compounds
 - [🔗 View](https://tdcommons.ai/single_pred_tasks/tox#ames-mutagenicity)
 
-### 2. **HIV Inhibition**
+### 2. **HIV Inhibition (Secondary Dataset - to test scripts re-usability)**
 - Predict if a compound **inhibits HIV replication** (1) or not (0)
 - Input: SMILES strings
 - Size: ~41,000 compounds
@@ -129,7 +129,7 @@ Featurization converts SMILES into numeric vectors using pretrained models from 
     Analyzed feature relationships and distribution shifts.
 <img width="1062" alt="Screenshot 2025-04-07 at 1 36 38 PM" src="https://github.com/user-attachments/assets/65902b45-b871-4390-89c4-68cf57f464f5" />
 <img width="1064" alt="Screenshot 2025-04-07 at 1 37 36 PM" src="https://github.com/user-attachments/assets/ee5c64d7-a105-4661-84fd-ee2f6f5f04b0" />
-
+<img width="1065" alt="Screenshot 2025-04-07 at 2 07 09 PM" src="https://github.com/user-attachments/assets/64ce37a0-596e-4012-bcd1-f60edf465510" />
   
   - **Visualize Molecules by Class**
 
@@ -155,18 +155,26 @@ Featurization converts SMILES into numeric vectors using pretrained models from 
   - **Data Preprocessing with `ModelPreprocessor`**
 
     Auto-detects feature columns using prefix and splits data.
-  
+<img width="1065" alt="Screenshot 2025-04-07 at 2 12 03 PM" src="https://github.com/user-attachments/assets/34e60980-24ce-4e51-a4ec-d6212651ef13" />
+<img width="1065" alt="Screenshot 2025-04-07 at 2 16 09 PM" src="https://github.com/user-attachments/assets/7e89494b-9d93-44d5-8797-c00533373973" />
+
   - **AutoML Exploration using PyCaret**
 
-    Compared top classifiers in a single call using `run_pycaret()`.
+    Compared ML classifiers for framework selection in a single call.
+<img width="1064" alt="Screenshot 2025-04-07 at 2 15 47 PM" src="https://github.com/user-attachments/assets/6934c082-cf7f-44d0-a236-e63b677d30a1" />
+<img width="1064" alt="Screenshot 2025-04-07 at 2 16 48 PM" src="https://github.com/user-attachments/assets/3bf8d839-0389-4e89-af8f-3fb0f234f5d5" />
   
   - **Hyperparameter Tuning**
     - Auto `PyCaret` tuning on selected models
     - Manual `GridSearchCV` on selected models.
-  
+ <img width="1064" alt="Screenshot 2025-04-07 at 2 35 38 PM" src="https://github.com/user-attachments/assets/c84c8615-0ad4-4346-9f20-775bab1c4172" />
+ 
   - **Evaluation**
     
      Accuracy, F1, Precision, Recall, Kappa, AUC, MCC + Confusion Matrix + Feature Importance plots.
+<img width="1064" alt="Screenshot 2025-04-07 at 3 18 47 PM" src="https://github.com/user-attachments/assets/836c104c-2155-4187-a95d-83ef5c5bd458" />
+<img width="1067" alt="Screenshot 2025-04-07 at 2 21 54 PM" src="https://github.com/user-attachments/assets/e06686ed-6768-44f2-8ea0-d0370b994c87" />
+<img width="1064" alt="Screenshot 2025-04-07 at 2 22 56 PM" src="https://github.com/user-attachments/assets/89c8b415-2afe-43aa-9b4e-948435a59555" />
 
 
 ### 5. ⚖️ Model Comparison  
@@ -176,6 +184,7 @@ Featurization converts SMILES into numeric vectors using pretrained models from 
 
     Random Forest, Extra Trees, LightGBM, XGBoost, Logistic Regression
   - Visual comparisons via bar charts.
+<img width="1074" alt="Screenshot 2025-04-07 at 2 27 29 PM" src="https://github.com/user-attachments/assets/ce7b3729-5210-41e0-8a7b-aa2de7705de5" />
 
 
 ### 6. 🏆 Best Performing Model  
@@ -189,6 +198,7 @@ Featurization converts SMILES into numeric vectors using pretrained models from 
 
   - Use `ModelInference` class to predict on new SMILES.
   - Inference returns predictions + class probabilities.
+<img width="1066" alt="Screenshot 2025-04-07 at 3 19 50 PM" src="https://github.com/user-attachments/assets/fb2d58df-bf12-4d48-9da5-aee599081787" />
 
 ---
 
@@ -354,16 +364,6 @@ The module handles:
 | `predict(smiles_list)` | Featurizes input SMILES and returns predictions | `List[str]` | DataFrame with prediction and probability | Auto-aligns with trained model |
 | `_parse_model_filename(...)` | Extracts dataset/featurizer from file | `model_path` | Tuple | Must follow `<dataset>_<featurizer>_<model>.pkl` |
 | `_get_probability_column_name()` | Adjusts probability column name per dataset | None | str | E.g., "Mutagenic_Probability" |
-
----
-
-
-##  What's Next
-
-- [x] Load and preprocess HIV dataset
-- [x] Train comparable models for HIV
-- [ ] Deploy evaluation results as a static dashboard
-- [ ] Package reusable pipeline CLI for external datasets
 
 ---
 
