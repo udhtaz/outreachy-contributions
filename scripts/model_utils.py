@@ -776,7 +776,7 @@ class ModelInference:
                                       If None, loads the default AMES model.
         """
         if model_path is None:
-            default_model = "ames_eos4wt0_randomforestclassifier.pkl"
+            default_model = "ames_eos4wt0_extratreesclassifier.pkl"
             project_root = Path(__file__).resolve().parents[1]
             model_path = project_root / "models" / "ames" / default_model
             print(f"🔁 No model path provided. Using default model: {model_path}")
