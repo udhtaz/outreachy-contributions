@@ -872,3 +872,71 @@ class ModelInference:
             result_df[prob_col] = prob_values
 
         return result_df
+    
+    def evaluate_from_csv(
+        self,
+        csv_path: Union[str, Path],
+        smiles_col: str = "Drug",
+        label_col: str = "Y",
+        show_plot: bool = True
+    ) -> pd.DataFrame:
+        """
+        Evaluate the model using an external CSV file and return a confusion matrix DataFrame.
+
+        Parameters:
+            csv_path (str or Path): Path to a CSV file containing SMILES and ground truth labels.
+            smiles_col (str): Name of the column containing SMILES strings. Defaults to "Drug".
+            label_col (str): Name of the column containing ground truth labels. Defaults to "Y".
+            show_plot (bool): Whether to show a heatmap plot of the confusion matrix.
+
+        Returns:
+            pd.DataFrame: Confusion matrix as a labeled DataFrame.
+        """
+        import seaborn as sns
+        import matplotlib.pyplot as plt
+        from sklearn.metrics import (
+            confusion_matrix, accuracy_score, precision_score,
+            recall_score, f1_score
+        )
+
+        df = pd.read_csv(csv_path)
+
+        if smiles_col not in df.columns or label_col not in df.columns:
+            raise ValueError(f"CSV must contain columns: '{smiles_col}' and '{label_col}'")
+
+        smiles = df[smiles_col].tolist()
+        true_labels = df[label_col].tolist()
+
+        preds_df = self.predict(smiles)
+        predicted_labels = preds_df["Prediction"].tolist()
+
+        # Evaluation metrics
+        accuracy = accuracy_score(true_labels, predicted_labels)
+        precision = precision_score(true_labels, predicted_labels)
+        recall = recall_score(true_labels, predicted_labels)
+        f1 = f1_score(true_labels, predicted_labels)
+
+        print("📊 Evaluation Metrics:")
+        print(f"• Accuracy :  {accuracy:.4f}")
+        print(f"• Precision:  {precision:.4f}")
+        print(f"• Recall   :  {recall:.4f}")
+        print(f"• F1 Score :  {f1:.4f}")
+
+        # Confusion matrix
+        cm = confusion_matrix(true_labels, predicted_labels)
+        cm_df = pd.DataFrame(
+            cm,
+            index=["Actual Negative (0)", "Actual Positive (1)"],
+            columns=["Predicted Negative (0)", "Predicted Positive (1)"]
+        )
+
+        if show_plot:
+            plt.figure(figsize=(6, 5))
+            sns.heatmap(cm_df, annot=True, fmt="d", cmap="Blues")
+            plt.title(" Confusion Matrix")
+            plt.ylabel("Actual")
+            plt.xlabel("Predicted")
+            plt.tight_layout()
+            plt.show()
+
+        return cm_df
