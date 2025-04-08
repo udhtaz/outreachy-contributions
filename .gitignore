@@ -176,3 +176,9 @@ cython_debug/
 
 # The feauturized data for eos4wt0 were too large 
 **/*eos4wt0*.csv
+
+# Ignore all HIV models
+models/hiv/
+
+# Ignore all HIV figures
+notebooks/figures/hiv/
